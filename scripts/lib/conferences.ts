@@ -195,7 +195,8 @@ export function issueToConference(body: string, now: number): IssueResult {
   // Quote times: YAML 1.1 parsers read a bare 12:00 as the number 720.
   const yaml = stringifyYaml(candidate, { lineWidth: 0 }).replace(/^(\s+time: )(\d{1,2}:\d{2})$/gm, '$1"$2"');
   const report = validateAll([{ path: `src/data/conferences/${slug}.yaml`, content: yaml }], now);
-  errors.push(...report.errors.map((e) => e.message));
+  // Form users never choose a file name; it's derived from the name, whose own error covers it.
+  errors.push(...report.errors.filter((e) => !e.message.startsWith('File name')).map((e) => e.message));
 
   if (errors.length) return { ok: false, errors };
   return { ok: true, slug, yaml, conference: report.conferences.values().next().value, errors: [] };

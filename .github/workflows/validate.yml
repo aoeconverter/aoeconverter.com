@@ -4,6 +4,9 @@ on:
   pull_request:
   push:
     branches: [master]
+  # The issue bot dispatches this on its branches: PRs it opens with GITHUB_TOKEN
+  # don't trigger pull_request runs, but a dispatched run still reports the check.
+  workflow_dispatch:
 
 permissions:
   contents: read

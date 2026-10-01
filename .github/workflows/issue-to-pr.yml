@@ -5,6 +5,7 @@ on:
     types: [opened, edited, labeled]
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
   issues: write
@@ -66,6 +67,7 @@ jobs:
           git add -- "$FILE"
           git commit -m "$TITLE" -m "From issue #$ISSUE." -m "Co-authored-by: $AUTHOR"
           git push --force origin "$BRANCH"
+          gh workflow run validate.yml --ref "$BRANCH"
           PR=$(gh pr list --head "$BRANCH" --state open --json url --jq '.[0].url')
           if [ -z "$PR" ]; then
             PR=$(gh pr create --base master --head "$BRANCH" --title "$TITLE" --body-file "$COMMENT" --label add-conference)
