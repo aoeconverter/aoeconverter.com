@@ -1,0 +1,9 @@
+name: IJCAI 2027
+field: Artificial intelligence
+url: https://2027.ijcai.org/
+location: Kyoto, Japan
+deadlines:
+  - track: Abstracts
+    date: 2027-01-04
+  - track: Full papers
+    date: 2027-01-11
