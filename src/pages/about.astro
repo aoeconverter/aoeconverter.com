@@ -1,0 +1,77 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="What is AoE (Anywhere on Earth) time?" description="AoE means Anywhere on Earth: UTC−12, the last timezone where a date ends. How AoE deadlines work and how this clock stays accurate.">
+  <article class="prose">
+    <h1>What “Anywhere on Earth” means</h1>
+    <p>
+      AoE is the timezone UTC−12. It’s the westernmost timezone, used on the uninhabited Baker and Howland Islands, so it’s
+      the last place where any given date ends. A deadline of “15 November, 23:59 AoE” stays open as long as it’s still
+      15 November anywhere on the planet. Wherever you are, if your submission is in before that, you’re on time.
+    </p>
+    <p>
+      AoE never changes for daylight saving. It’s always 12 hours behind UTC. In the IANA timezone database it’s called
+      <code>Etc/GMT+12</code>; the sign is inverted by an old POSIX convention.
+    </p>
+
+    <h2>Why deadlines use it</h2>
+    <p>
+      Conferences, journals, grant programs, and hackathons draw submissions from every timezone. Picking the last
+      timezone on Earth means no one loses part of the final day because of where they live. You don’t need to convert
+      anything to know whether you’re late: if the date hasn’t ended for everyone, you aren’t.
+    </p>
+
+    <h2>23:59 or midnight?</h2>
+    <p>
+      Most calls for papers say “23:59 AoE”, so this site uses 23:59:00 as the default deadline time. The countdown reaches
+      zero at the start of that minute. If your deadline says a different time, set it explicitly. Some submission
+      systems close a few minutes early anyway, so don’t plan to submit in the last minute.
+    </p>
+
+    <h2>How this clock stays accurate</h2>
+    <p>
+      Device clocks are often off by several seconds, and sometimes by minutes. When a page loads, it asks our server for
+      the time a few times, measures how long each answer took, and keeps the fastest one. That gives the gap between your
+      clock and real time, usually to within a few tens of milliseconds. The page checks again every ten minutes and when
+      you return to the tab. If your device clock is more than two seconds off, the clock band says so.
+    </p>
+    <p>
+      If the server can’t be reached, the clock falls back to the time in the server’s HTTP headers (accurate to about a
+      second), and then to your device clock. The band under the clock always tells you which one you’re seeing.
+    </p>
+
+    <h2>Quick conversions</h2>
+    <table>
+      <thead>
+        <tr><th scope="col">Deadline</th><th scope="col">In UTC</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>23:59 AoE on day D</td><td>11:59 UTC on day D+1</td></tr>
+        <tr><td>12:00 AoE on day D</td><td>00:00 UTC on day D+1</td></tr>
+        <tr><td>00:00 AoE on day D</td><td>12:00 UTC on day D</td></tr>
+      </tbody>
+    </table>
+    <p>For anything else, use the <a href="/convert">converter</a>.</p>
+  </article>
+</Base>
+
+<style>
+  .prose {
+    max-width: 68ch;
+  }
+  .prose h2 {
+    margin-top: 1.6em;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    max-width: 520px;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+  }
+</style>

@@ -1,0 +1,178 @@
+---
+interface Props {
+  hero?: boolean;
+}
+const { hero = false } = Astro.props;
+---
+
+<header class:list={['aoe-clock', { hero }]} aria-label="Current time Anywhere on Earth">
+  <div class="inner">
+    <div class="row">
+      <time class="digits" data-digits aria-live="off">--:--:--</time>
+      <div class="meta">
+        <span class="date" data-date>&nbsp;</span>
+        <span class="zone">Anywhere on Earth, UTC−12</span>
+      </div>
+    </div>
+    <div class="dateline" data-dateline>
+      <div class="track" aria-hidden="true"><span class="fill" data-fill></span></div>
+      <p class="left" data-left>&nbsp;</p>
+      <p class="sync" data-sync>Syncing with server clock…</p>
+    </div>
+    <noscript><p class="left">Turn on JavaScript to see the live AoE clock. AoE is UTC minus 12 hours.</p></noscript>
+  </div>
+</header>
+
+<script>
+  import { clock } from '../lib/client';
+  import { everySecond } from '../lib/timesync';
+  import { aoeParts, aoeDayProgress, pad } from '../lib/aoe';
+  import { MONTHS, WEEKDAYS, humanDuration } from '../lib/format';
+
+  const root = document.querySelector<HTMLElement>('.aoe-clock')!;
+  const $ = (k: string) => root.querySelector<HTMLElement>(`[data-${k}]`)!;
+  const digits = $('digits');
+  const dateEl = $('date');
+  const fill = $('fill');
+  const left = $('left');
+  const syncEl = $('sync');
+  const isHero = root.classList.contains('hero');
+
+  everySecond(
+    () => clock.now(),
+    (t) => {
+      const p = aoeParts(t);
+      const hms = `${pad(p.hour)}:${pad(p.minute)}:${pad(p.second)}`;
+      digits.textContent = hms;
+      digits.setAttribute('datetime', new Date(t).toISOString());
+      dateEl.textContent = `${WEEKDAYS[p.weekday]} ${p.day} ${MONTHS[p.month - 1]} ${p.year}`;
+      const progress = aoeDayProgress(t);
+      fill.style.transform = `scaleX(${progress})`;
+      const msLeft = (1 - progress) * 86400_000;
+      left.textContent = `${humanDuration(msLeft)} until this date ends everywhere on Earth`;
+      if (isHero) document.title = `${hms} AoE`;
+    },
+  );
+
+  clock.onChange((s) => {
+    const drift = Math.abs(s.offset);
+    syncEl.classList.toggle('warn', s.source !== 'server' || drift > 2000);
+    if (s.source === 'server') {
+      const skew =
+        drift > 2000 ? ` Your device clock is ${(drift / 1000).toFixed(1)} s ${s.offset < 0 ? 'fast' : 'slow'}; this page corrects for it.` : '';
+      syncEl.textContent = `Synced with server clock, accurate to ±${s.uncertainty} ms.${skew}`;
+    } else if (s.source === 'date-header') {
+      syncEl.textContent = 'Synced roughly (±1 s). The time server didn’t answer.';
+    } else {
+      syncEl.textContent = 'Can’t reach the time server. Showing your device clock, which may be off.';
+    }
+  });
+</script>
+
+<style>
+  .aoe-clock {
+    --band-bg: #0f2740;
+    --band-fg: #eaf0f4;
+    --band-muted: #a7bacb;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--band-bg);
+    color: var(--band-fg);
+  }
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme='light'])) .aoe-clock {
+      --band-bg: #081a2c;
+    }
+  }
+  :global(:root[data-theme='dark']) .aoe-clock {
+    --band-bg: #081a2c;
+  }
+  .inner {
+    width: min(1120px, 100% - 32px);
+    margin-inline: auto;
+    padding: 12px 0 10px;
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    column-gap: 28px;
+  }
+  .digits {
+    display: block;
+    font-weight: 800;
+    font-variation-settings: 'wdth' 62;
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(3.25rem, 15vw, 6.5rem);
+    line-height: 0.84;
+    letter-spacing: -0.02em;
+    margin-left: -0.04em;
+  }
+  .hero .digits {
+    font-size: clamp(4.75rem, 25vw, 12.5rem);
+  }
+  .meta {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 0.3em;
+    font-variation-settings: 'wdth' 90;
+  }
+  .date {
+    font-weight: 700;
+    font-size: clamp(1rem, 2.4vw, 1.375rem);
+  }
+  .hero .date {
+    font-size: clamp(1.125rem, 3vw, 1.75rem);
+  }
+  .zone {
+    color: var(--band-muted);
+    font-size: 0.9375rem;
+  }
+  .dateline {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 24px;
+    font-size: 0.875rem;
+  }
+  .track {
+    grid-column: 1 / -1;
+    height: 6px;
+    background: rgb(234 240 244 / 0.16);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .fill {
+    display: block;
+    height: 100%;
+    background: #f5c342;
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 0.9s linear;
+  }
+  .dateline p {
+    margin: 0;
+    max-width: none;
+  }
+  .sync {
+    color: var(--band-muted);
+    text-align: right;
+  }
+  .sync.warn {
+    color: #f5c342;
+  }
+  @media (max-width: 640px) {
+    .dateline {
+      grid-template-columns: 1fr;
+    }
+    .sync {
+      text-align: left;
+      font-size: 0.8125rem;
+    }
+    .aoe-clock:not(.hero) .sync {
+      display: none;
+    }
+  }
+</style>

@@ -1,0 +1,293 @@
+---
+import AoEClock from '../components/AoEClock.astro';
+
+interface Props {
+  title: string;
+  description: string;
+  hero?: boolean;
+}
+const { title, description, hero = false } = Astro.props;
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const nav = [
+  ['/convert', 'Convert'],
+  ['/conferences', 'Conference deadlines'],
+  ['/embed', 'Embed a countdown'],
+  ['/about', 'About AoE'],
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={new URL(Astro.url.pathname, Astro.site)} />
+    <meta property="og:image" content={new URL('/og/default.png', Astro.site)} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:image" content={new URL('/og/default.png', Astro.site)} />
+    <meta name="theme-color" content="#0F2740" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&display=swap"
+    />
+  </head>
+  <body class:list={{ 'is-hero': hero }}>
+    <a class="skip" href="#main">Skip to content</a>
+    <AoEClock hero={hero} />
+    <nav class="site-nav" aria-label="Main">
+      <a href="/" class="wordmark" aria-current={path === '/' ? 'page' : undefined}>aoeconverter</a>
+      <ul>
+        {
+          nav.map(([href, label]) => (
+            <li>
+              <a href={href} aria-current={path === href ? 'page' : undefined}>
+                {label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+    <main id="main">
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <p>
+        AoE is UTC−12 with no daylight saving. The time shown is synced to our server, not just read from your device.
+      </p>
+    </footer>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --ink: #0f2740;
+    --paper: #eaf0f4;
+    --surface: #f6f9fb;
+    --line: #8fa6ba;
+    --muted: #4d6378;
+    --buoy: #f5c342;
+    --signal: #d8452f;
+    --focus: #1f6fd1;
+    --wide: 'wdth' 100;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --ink: #e4edf3;
+      --paper: #0f2740;
+      --surface: #16324f;
+      --line: #4f6c87;
+      --muted: #a7bacb;
+      --signal: #ff7a63;
+      --focus: #8cc2ff;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme='dark'] {
+    --ink: #e4edf3;
+    --paper: #0f2740;
+    --surface: #16324f;
+    --line: #4f6c87;
+    --muted: #a7bacb;
+    --signal: #ff7a63;
+    --focus: #8cc2ff;
+    color-scheme: dark;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Archivo', system-ui, sans-serif;
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+  a {
+    color: inherit;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+  }
+  a:hover {
+    text-decoration-thickness: 2px;
+  }
+  :focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+  h1,
+  h2,
+  h3 {
+    line-height: 1.1;
+    font-variation-settings: 'wdth' 80;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.5em;
+  }
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.25rem);
+  }
+  h2 {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+  }
+  h3 {
+    font-size: 1.25rem;
+  }
+  p {
+    max-width: 66ch;
+  }
+
+  .skip {
+    position: absolute;
+    left: -999px;
+  }
+  .skip:focus {
+    left: 16px;
+    top: 16px;
+    z-index: 100;
+    background: var(--paper);
+    padding: 8px 12px;
+  }
+
+  .site-nav,
+  main,
+  .site-footer {
+    width: min(1120px, 100% - 32px);
+    margin-inline: auto;
+  }
+  .site-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px 32px;
+    padding: 20px 0 8px;
+  }
+  .wordmark {
+    font-weight: 800;
+    font-variation-settings: 'wdth' 70;
+    font-size: 1.25rem;
+    text-decoration: none;
+  }
+  .site-nav ul {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 20px;
+    margin: 0;
+    padding: 0;
+  }
+  .site-nav ul a {
+    text-decoration: none;
+    color: var(--muted);
+  }
+  .site-nav a[aria-current='page'] {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+  }
+  main {
+    padding: 32px 0 64px;
+  }
+  .site-footer {
+    border-top: 1px solid var(--line);
+    padding: 20px 0 40px;
+    color: var(--muted);
+    font-size: 0.9375rem;
+  }
+
+  /* Shared form controls */
+  label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    margin-bottom: 4px;
+  }
+  input,
+  select,
+  button,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+  input,
+  select,
+  textarea {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 8px 10px;
+    min-height: 44px;
+    width: 100%;
+  }
+  input[type='checkbox'] {
+    width: auto;
+    min-height: 0;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 8px 18px;
+    border-radius: 4px;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .btn.secondary {
+    background: transparent;
+    color: var(--ink);
+  }
+  .field-row {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    align-items: end;
+  }
+  .muted {
+    color: var(--muted);
+  }
+  code,
+  pre {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.875rem;
+  }
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+</style>

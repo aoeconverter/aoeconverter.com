@@ -1,0 +1,32 @@
+[
+  {
+    "slug": "example-ml-2027",
+    "name": "Example ML Conference 2027",
+    "track": "Full papers",
+    "field": "Machine learning",
+    "deadline_date": "2027-01-29",
+    "deadline_time": "23:59",
+    "url": "https://example.org/",
+    "example": true
+  },
+  {
+    "slug": "example-hci-2027",
+    "name": "Example HCI Conference 2027",
+    "track": "Abstracts",
+    "field": "Human-computer interaction",
+    "deadline_date": "2026-11-12",
+    "deadline_time": "23:59",
+    "url": "https://example.org/",
+    "example": true
+  },
+  {
+    "slug": "example-sys-2027",
+    "name": "Example Systems Symposium 2027",
+    "track": "Papers",
+    "field": "Systems",
+    "deadline_date": "2026-12-04",
+    "deadline_time": "12:00",
+    "url": "https://example.org/",
+    "example": true
+  }
+]

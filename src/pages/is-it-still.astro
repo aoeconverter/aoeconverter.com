@@ -1,0 +1,105 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Is it still today anywhere on Earth?" description="A live answer to whether a calendar date is still running somewhere on Earth, and for how long.">
+  <h1 data-q>Is it still today anywhere on Earth?</h1>
+  <p class="verdict" data-verdict aria-live="polite"></p>
+  <p class="detail" data-detail></p>
+
+  <form class="field-row picker" data-pick>
+    <div>
+      <label for="s-date">Ask about another date</label>
+      <input id="s-date" type="date" required />
+    </div>
+    <button class="btn" type="submit">Check this date</button>
+  </form>
+
+  <section class="explain">
+    <h2>How this is worked out</h2>
+    <p>
+      A calendar date starts first on the Line Islands (UTC+14) and ends last on Baker and Howland Islands (UTC−12),
+      so every date exists somewhere on Earth for 50 hours. A deadline of “23:59 AoE” is the last minute of that date
+      in the westernmost timezone. If it’s still that date anywhere, you’re still on time.
+    </p>
+  </section>
+</Base>
+
+<script>
+  import { clock } from '../lib/client';
+  import { everySecond } from '../lib/timesync';
+  import { isStillAnywhere, parseDate, todayAoE, ymdString } from '../lib/aoe';
+  import { MONTHS, WEEKDAYS, humanDuration } from '../lib/format';
+
+  const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(s)!;
+  const fromPath = location.pathname.match(/\/is-it-still\/(\d{4}-\d{2}-\d{2})/)?.[1];
+  const ymd = parseDate(fromPath) ?? todayAoE(clock.now());
+  const key = ymdString(ymd);
+  const dow = WEEKDAYS[new Date(Date.UTC(ymd.year, ymd.month - 1, ymd.day)).getUTCDay()];
+  const pretty = `${dow} ${ymd.day} ${MONTHS[ymd.month - 1]} ${ymd.year}`;
+
+  $('[data-q]').textContent = `Is it still ${pretty} anywhere on Earth?`;
+  document.title = `Is it still ${key} anywhere on Earth?`;
+  const input = $<HTMLInputElement>('#s-date');
+  input.value = key;
+  $<HTMLFormElement>('[data-pick]').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (input.value) location.href = `/is-it-still/${input.value}`;
+  });
+
+  const verdict = $('[data-verdict]');
+  const detail = $('[data-detail]');
+  let last = '';
+  everySecond(
+    () => clock.now(),
+    (now) => {
+      const s = isStillAnywhere(ymd, now);
+      let v: string, d: string, cls: string;
+      if (s.state === 'yes') {
+        v = 'Yes.';
+        d = `${pretty} still has ${humanDuration(s.remaining)} left in the AoE timezone, the last place on Earth where it ends.`;
+        cls = 'yes';
+      } else if (s.state === 'no') {
+        v = 'No.';
+        d = `${pretty} ended everywhere ${humanDuration(s.endedAgo)} ago.`;
+        cls = 'no';
+      } else {
+        v = 'Not yet.';
+        d = `${pretty} hasn’t started anywhere. It begins on the Line Islands in ${humanDuration(s.startsIn)}.`;
+        cls = 'not-yet';
+      }
+      if (v + d !== last) {
+        verdict.textContent = v;
+        verdict.className = `verdict ${cls}`;
+        detail.textContent = d;
+        last = v + d;
+      }
+    },
+  );
+</script>
+
+<style>
+  .verdict {
+    font-weight: 900;
+    font-variation-settings: 'wdth' 62;
+    font-size: clamp(5rem, 22vw, 12rem);
+    line-height: 0.9;
+    margin: 0.1em 0 0.15em;
+  }
+  .verdict.no {
+    color: var(--signal);
+  }
+  .detail {
+    font-size: 1.375rem;
+    line-height: 1.4;
+    max-width: 38ch;
+  }
+  .picker {
+    max-width: 520px;
+    margin: 32px 0 48px;
+  }
+  .explain {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+  }
+</style>

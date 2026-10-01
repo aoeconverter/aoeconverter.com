@@ -1,0 +1,252 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Convert AoE time to any timezone" description="Convert Anywhere on Earth (AoE, UTC−12) times to your local time or any timezone, and back.">
+  <h1>Convert AoE to any timezone</h1>
+  <p class="muted">Enter a time in any zone. Every row below updates, and the link keeps your choice.</p>
+
+  <form class="source field-row" data-src>
+    <div>
+      <label for="c-date">Date</label>
+      <input id="c-date" type="date" required />
+    </div>
+    <div>
+      <label for="c-time">Time</label>
+      <input id="c-time" type="time" step="60" required />
+    </div>
+    <div class="zone-col">
+      <label for="c-zone">Timezone</label>
+      <select id="c-zone"></select>
+    </div>
+    <button class="btn secondary nowrap" type="button" data-now>Use current time</button>
+  </form>
+
+  <ul class="results" data-results aria-live="polite"></ul>
+
+  <form class="add field-row" data-add>
+    <div class="zone-col">
+      <label for="add-zone">Add a timezone</label>
+      <input id="add-zone" list="zone-list" placeholder="Start typing a city, e.g. Tokyo" autocomplete="off" />
+      <datalist id="zone-list"></datalist>
+    </div>
+    <button class="btn" type="submit">Add timezone</button>
+  </form>
+  <p class="error" data-add-error role="alert"></p>
+</Base>
+
+<script>
+  import { clock } from '../lib/client';
+  import { aoeParts, formatOffset, pad, parseDate, parseTime, zoneOffset, zonedToEpoch } from '../lib/aoe';
+  import { formatInZone } from '../lib/format';
+
+  const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(s)!;
+  const dateIn = $<HTMLInputElement>('#c-date');
+  const timeIn = $<HTMLInputElement>('#c-time');
+  const zoneIn = $<HTMLSelectElement>('#c-zone');
+  const results = $('[data-results]');
+  const addIn = $<HTMLInputElement>('#add-zone');
+  const addErr = $('[data-add-error]');
+
+  const local = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const allZones: string[] = (Intl as any).supportedValuesOf?.('timeZone') ?? [local, 'UTC'];
+  const label = (z: string) => (z === 'AoE' ? 'AoE (Anywhere on Earth)' : z.replace(/_/g, ' '));
+  const STORE = 'aoe:zones';
+
+  let saved: string[] = [];
+  try {
+    saved = JSON.parse(localStorage.getItem(STORE) || '[]').filter((z: string) => allZones.includes(z));
+  } catch {}
+  if (!saved.length) saved = ['UTC', 'America/Los_Angeles', 'Europe/London', 'Asia/Tokyo'].filter((z) => z !== local);
+  const persist = () => {
+    try {
+      localStorage.setItem(STORE, JSON.stringify(saved));
+    } catch {}
+  };
+
+  for (const z of ['AoE', local, ...allZones.filter((z) => z !== local)]) {
+    zoneIn.add(new Option(label(z), z));
+  }
+  $('#zone-list').append(...allZones.map((z) => new Option(label(z), z)));
+
+  // Initial state: URL query, else "now" in AoE.
+  const q = new URLSearchParams(location.search);
+  function setNow() {
+    const tz = zoneIn.value;
+    const now = clock.now();
+    if (tz === 'AoE') {
+      const p = aoeParts(now);
+      dateIn.value = `${p.year}-${pad(p.month)}-${pad(p.day)}`;
+      timeIn.value = `${pad(p.hour)}:${pad(p.minute)}`;
+    } else {
+      const shifted = new Date(now + zoneOffset(now, tz));
+      dateIn.value = shifted.toISOString().slice(0, 10);
+      timeIn.value = shifted.toISOString().slice(11, 16);
+    }
+  }
+  zoneIn.value = q.get('tz') && (q.get('tz') === 'AoE' || allZones.includes(q.get('tz')!)) ? q.get('tz')! : 'AoE';
+  if (parseDate(q.get('date')) && parseTime(q.get('time'))) {
+    dateIn.value = q.get('date')!;
+    timeIn.value = q.get('time')!;
+  } else {
+    setNow();
+  }
+
+  function rows(): string[] {
+    const list = ['AoE', local, ...saved];
+    return list.filter((z, i) => list.indexOf(z) === i);
+  }
+
+  function render() {
+    const d = parseDate(dateIn.value);
+    const t = parseTime(timeIn.value);
+    if (!d || !t || !timeIn.value) {
+      results.innerHTML = '<li class="empty">Enter a date and time to convert.</li>';
+      return;
+    }
+    const epoch = zonedToEpoch(d, t, zoneIn.value);
+    const p = new URLSearchParams({ date: dateIn.value, time: timeIn.value, tz: zoneIn.value });
+    history.replaceState(null, '', `?${p}`);
+
+    results.replaceChildren(
+      ...rows().map((z) => {
+        const li = document.createElement('li');
+        if (z === zoneIn.value) li.className = 'is-source';
+        const iana = z === 'AoE' ? 'Etc/GMT+12' : z;
+        const name = document.createElement('span');
+        name.className = 'name';
+        name.textContent = z === local ? `${label(z)} (you)` : label(z);
+        const off = document.createElement('span');
+        off.className = 'off';
+        off.textContent = formatOffset(zoneOffset(epoch, iana));
+        const when = document.createElement('span');
+        when.className = 'when';
+        when.textContent = formatInZone(epoch, iana).replace(/:\d{2}$/, '');
+        li.append(name, off, when);
+        if (z !== 'AoE' && z !== local) {
+          const rm = document.createElement('button');
+          rm.type = 'button';
+          rm.className = 'rm';
+          rm.textContent = 'Remove';
+          rm.setAttribute('aria-label', `Remove ${label(z)}`);
+          rm.onclick = () => {
+            saved = saved.filter((s) => s !== z);
+            persist();
+            render();
+          };
+          li.append(rm);
+        }
+        return li;
+      }),
+    );
+  }
+
+  $('[data-src]').addEventListener('input', render);
+  zoneIn.addEventListener('change', render);
+  $('[data-now]').addEventListener('click', () => {
+    setNow();
+    render();
+  });
+  $<HTMLFormElement>('[data-add]').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const raw = addIn.value.trim();
+    const z = allZones.find((x) => x === raw || label(x).toLowerCase() === raw.toLowerCase()) ??
+      allZones.find((x) => label(x).toLowerCase().includes(raw.toLowerCase()));
+    if (!raw || !z) {
+      addErr.textContent = `No timezone matches “${raw}”. Try a city name like Berlin or Sao Paulo.`;
+      return;
+    }
+    addErr.textContent = '';
+    if (!saved.includes(z)) saved.push(z);
+    persist();
+    addIn.value = '';
+    render();
+  });
+  render();
+</script>
+
+<style>
+  .source {
+    margin: 24px 0;
+    max-width: 900px;
+  }
+  .zone-col {
+    grid-column: span 2;
+  }
+  @media (max-width: 560px) {
+    .zone-col {
+      grid-column: 1 / -1;
+    }
+  }
+  .results {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 32px;
+    max-width: 900px;
+    border-top: 1px solid var(--line);
+  }
+  .results :global(li) {
+    display: grid;
+    grid-template-columns: minmax(10rem, 1fr) 5.5rem minmax(14rem, 1.6fr) 5rem;
+    gap: 4px 16px;
+    align-items: baseline;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .results :global(li.is-source) {
+    box-shadow: inset 4px 0 0 var(--buoy);
+    margin-left: -14px;
+    padding-left: 10px;
+  }
+  .results :global(.name) {
+    font-weight: 700;
+  }
+  .results :global(.off) {
+    color: var(--muted);
+    font-size: 0.9375rem;
+  }
+  .results :global(.when) {
+    font-size: 1.25rem;
+    font-weight: 600;
+    font-variation-settings: 'wdth' 85;
+  }
+  .results :global(.rm) {
+    background: none;
+    border: 0;
+    color: var(--muted);
+    text-decoration: underline;
+    cursor: pointer;
+    min-height: 44px;
+  }
+  .results :global(.empty) {
+    display: block;
+    color: var(--muted);
+  }
+  @media (max-width: 640px) {
+    .results :global(li) {
+      grid-template-columns: 1fr auto;
+    }
+    .results :global(li.is-source) {
+      margin-left: 0;
+    }
+    .results :global(.when) {
+      grid-column: 1;
+      grid-row: 2;
+    }
+    .results :global(.rm) {
+      grid-column: 2;
+      grid-row: 2;
+      justify-self: end;
+    }
+  }
+  .nowrap {
+    white-space: nowrap;
+  }
+  .add {
+    max-width: 640px;
+  }
+  .error {
+    color: var(--signal);
+    min-height: 1.5em;
+  }
+</style>

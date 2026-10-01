@@ -1,0 +1,210 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Deadline countdown in AoE" description="Live countdown to a deadline Anywhere on Earth (UTC−12), shown in your own timezone.">
+  <section data-view hidden>
+    <h1 data-name>Deadline</h1>
+    <p class="when" data-when></p>
+    <div class="countdown" data-countdown role="timer" aria-live="off">
+      <div><span data-u="days">0</span><small>days</small></div>
+      <div><span data-u="hours">00</span><small>hours</small></div>
+      <div><span data-u="minutes">00</span><small>minutes</small></div>
+      <div><span data-u="seconds">00</span><small>seconds</small></div>
+    </div>
+    <p class="status" data-status aria-live="polite"></p>
+
+    <table class="zones">
+      <tbody>
+        <tr><th scope="row">Your time</th><td data-local></td></tr>
+        <tr><th scope="row">UTC</th><td data-utc></td></tr>
+        <tr><th scope="row">AoE</th><td data-aoe></td></tr>
+      </tbody>
+    </table>
+
+    <div class="actions">
+      <a class="btn" data-gcal target="_blank" rel="noopener">Add to Google Calendar</a>
+      <button class="btn secondary" type="button" data-ics>Download .ics</button>
+      <button class="btn secondary" type="button" data-copy-link>Copy link</button>
+      <a class="btn secondary" data-embed>Embed on a website</a>
+    </div>
+
+    <details class="badge">
+      <summary>Badge for a README or email</summary>
+      <p><img data-badge-img alt="Countdown badge preview" height="20" /></p>
+      <label for="badge-md">Markdown</label>
+      <pre id="badge-md" data-badge-md></pre>
+    </details>
+  </section>
+
+  <section data-invalid hidden>
+    <h1>Which deadline?</h1>
+    <p>This link doesn’t contain a valid date. Enter one to get a countdown.</p>
+    <form class="field-row" data-fix>
+      <div><label for="x-date">Date</label><input id="x-date" type="date" required /></div>
+      <div><label for="x-time">Time (AoE)</label><input id="x-time" type="time" value="23:59" /></div>
+      <button class="btn" type="submit">Show countdown</button>
+    </form>
+  </section>
+</Base>
+
+<script>
+  import { clock } from '../lib/client';
+  import { everySecond } from '../lib/timesync';
+  import { deadlineEpoch, parseDate, parseTime, pad, remainingDuration } from '../lib/aoe';
+  import { MONTHS, WEEKDAYS, badgePath, deadlinePath, formatInZone, humanDuration } from '../lib/format';
+  import { buildIcs, googleCalendarUrl } from '../lib/ics';
+
+  const url = new URL(location.href);
+  const date = url.pathname.match(/\/d\/(\d{4}-\d{2}-\d{2})/)?.[1] ?? url.searchParams.get('date') ?? '';
+  const time = url.searchParams.get('t') || '23:59';
+  const name = (url.searchParams.get('name') || '').slice(0, 80);
+  const epoch = deadlineEpoch(date, time);
+  const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(s)!;
+
+  if (epoch === null) {
+    $('[data-invalid]').hidden = false;
+    $<HTMLFormElement>('[data-fix]').addEventListener('submit', (e) => {
+      e.preventDefault();
+      location.href = deadlinePath({ date: $<HTMLInputElement>('#x-date').value, time: $<HTMLInputElement>('#x-time').value });
+    });
+  } else {
+    // Normalise ?date= links from the no-JS form into the pretty URL.
+    const canonical = deadlinePath({ date, time, name });
+    if (location.pathname + location.search !== canonical) history.replaceState(null, '', canonical);
+
+    $('[data-view]').hidden = false;
+    const d = parseDate(date)!;
+    const t = parseTime(time)!;
+    const label = name || 'Deadline';
+    const whenText = `${WEEKDAYS[new Date(Date.UTC(d.year, d.month - 1, d.day)).getUTCDay()]} ${d.day} ${MONTHS[d.month - 1]} ${d.year}, ${pad(t.hour)}:${pad(t.minute)}${t.second ? ':' + pad(t.second) : ''} AoE`;
+    $('[data-name]').textContent = label;
+    $('[data-when]').textContent = whenText;
+    document.title = `${label}: ${whenText}`;
+
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    $('[data-local]').textContent = `${formatInZone(epoch, tz)} (${tz.replace(/_/g, ' ')})`;
+    $('[data-utc]').textContent = formatInZone(epoch, 'UTC');
+    $('[data-aoe]').textContent = formatInZone(epoch, 'Etc/GMT+12');
+
+    const pageUrl = location.origin + canonical;
+    const ev = { title: label, epoch, url: pageUrl, description: `${whenText}. Countdown: ${pageUrl}` };
+    $<HTMLAnchorElement>('[data-gcal]').href = googleCalendarUrl(ev);
+    $('[data-ics]').addEventListener('click', () => {
+      const blob = new Blob([buildIcs(ev)], { type: 'text/calendar' });
+      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `${date}-deadline.ics` });
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    const copyBtn = $<HTMLButtonElement>('[data-copy-link]');
+    copyBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(pageUrl);
+      copyBtn.textContent = 'Link copied';
+      setTimeout(() => (copyBtn.textContent = 'Copy link'), 2000);
+    });
+    const q = new URLSearchParams({ date, t: time });
+    if (name) q.set('name', name);
+    $<HTMLAnchorElement>('[data-embed]').href = `/embed?${q}`;
+
+    const badgeUrl = location.origin + badgePath({ date, time, name });
+    $<HTMLImageElement>('[data-badge-img]').src = badgeUrl;
+    $('[data-badge-md]').textContent = `[![${label} countdown](${badgeUrl})](${pageUrl})`;
+
+    const units = {
+      days: $('[data-u="days"]'),
+      hours: $('[data-u="hours"]'),
+      minutes: $('[data-u="minutes"]'),
+      seconds: $('[data-u="seconds"]'),
+    };
+    const status = $('[data-status]');
+    const box = $('[data-countdown]');
+    let lastStatus = '';
+    everySecond(
+      () => clock.now(),
+      (now) => {
+        const left = epoch - now;
+        const r = remainingDuration(Math.max(0, left));
+        units.days.textContent = String(r.days);
+        units.hours.textContent = pad(r.hours);
+        units.minutes.textContent = pad(r.minutes);
+        units.seconds.textContent = pad(r.seconds);
+        box.classList.toggle('urgent', left > 0 && left < 86400_000);
+        box.classList.toggle('over', left <= 0);
+        const s = left > 0 ? `${humanDuration(left)} left.` : `This deadline passed ${humanDuration(-left)} ago.`;
+        // Only rewrite the live region when the coarse wording changes.
+        if (s !== lastStatus) status.textContent = lastStatus = s;
+      },
+    );
+  }
+</script>
+
+<style>
+  .when {
+    font-size: 1.25rem;
+    margin-top: -0.25em;
+  }
+  .countdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+    margin: 28px 0 8px;
+  }
+  .countdown div {
+    display: flex;
+    flex-direction: column;
+  }
+  .countdown span {
+    font-weight: 800;
+    font-variation-settings: 'wdth' 62;
+    font-size: clamp(3.5rem, 13vw, 8rem);
+    line-height: 0.9;
+  }
+  .countdown small {
+    color: var(--muted);
+    font-size: 0.9375rem;
+  }
+  .countdown.urgent span {
+    text-decoration: underline;
+    text-decoration-color: var(--buoy);
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.08em;
+  }
+  .countdown.over span {
+    color: var(--signal);
+  }
+  .status {
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+  .zones {
+    border-collapse: collapse;
+    margin: 24px 0;
+    width: 100%;
+    max-width: 640px;
+  }
+  .zones th,
+  .zones td {
+    text-align: left;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  .zones th {
+    width: 8rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .badge summary {
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .badge pre {
+    max-width: 760px;
+  }
+</style>

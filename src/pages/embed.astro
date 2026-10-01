@@ -1,0 +1,150 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Embed an AoE countdown on your website" description="Free live countdown to any Anywhere on Earth (AoE) deadline. Copy two lines of HTML into your site.">
+  <h1>Put an AoE countdown on your website</h1>
+  <p class="muted">Set up the countdown, check the preview, then paste the code into any HTML page, CMS block, or site builder that accepts custom HTML.</p>
+
+  <div class="layout">
+    <form class="opts" data-opts>
+      <div class="field-row">
+        <div><label for="e-date">Deadline date</label><input id="e-date" name="date" type="date" required /></div>
+        <div><label for="e-time">Time (AoE)</label><input id="e-time" name="time" type="time" value="23:59" /></div>
+      </div>
+      <div>
+        <label for="e-label">Label <span class="muted">(optional)</span></label>
+        <input id="e-label" name="label" maxlength="80" placeholder="Full paper submission" />
+      </div>
+      <div class="field-row">
+        <div>
+          <label for="e-theme">Style</label>
+          <select id="e-theme" name="theme">
+            <option value="auto">Match visitor’s light/dark setting</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="plain">Plain (uses your site’s colors)</option>
+          </select>
+        </div>
+        <div>
+          <label for="e-size">Size</label>
+          <select id="e-size" name="size">
+            <option value="s">Small</option>
+            <option value="m" selected>Medium</option>
+            <option value="l">Large</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label for="e-expired">Text after the deadline</label>
+        <input id="e-expired" name="expired" maxlength="80" placeholder="Deadline passed" />
+      </div>
+      <label class="check"><input type="checkbox" name="local" id="e-local" /> Also show the deadline in the visitor’s timezone</label>
+    </form>
+
+    <div class="out">
+      <h2>Preview</h2>
+      <div class="preview" data-preview></div>
+      <h2>Code</h2>
+      <pre data-code></pre>
+      <button class="btn" type="button" data-copy>Copy code</button>
+    </div>
+  </div>
+
+  <section class="notes">
+    <h2>What visitors’ browsers do</h2>
+    <p>
+      The script is about 3 KB. It sets no cookies and collects nothing. It asks our server for the current time a few
+      times when it loads, so the countdown is right even when the visitor’s clock is wrong. Styles are isolated, so the
+      widget won’t change your page and your CSS won’t break it. You can place several countdowns on one page with a
+      single script tag.
+    </p>
+  </section>
+</Base>
+
+<script is:inline async src="/embed/v1.js"></script>
+
+<script>
+  import { clock } from '../lib/client';
+  import { todayAoE, ymdString } from '../lib/aoe';
+
+  const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(s)!;
+  const form = $<HTMLFormElement>('[data-opts]');
+  const preview = $('[data-preview]');
+  const code = $('[data-code]');
+  const field = (n: string) => form.elements.namedItem(n) as HTMLInputElement;
+
+  const q = new URLSearchParams(location.search);
+  field('date').value = q.get('date') || ymdString(todayAoE(clock.now() + 7 * 86400_000));
+  if (q.get('t')) field('time').value = q.get('t')!;
+  if (q.get('name')) field('label').value = q.get('name')!;
+
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+  function render() {
+    const attrs: [string, string][] = [['deadline', field('date').value]];
+    if (field('time').value && field('time').value !== '23:59') attrs.push(['time', field('time').value]);
+    if (field('label').value.trim()) attrs.push(['label', field('label').value.trim()]);
+    if (field('theme').value !== 'auto') attrs.push(['theme', field('theme').value]);
+    if (field('size').value !== 'm') attrs.push(['size', field('size').value]);
+    if (field('expired').value.trim()) attrs.push(['expired', field('expired').value.trim()]);
+    if (field('local').checked) attrs.push(['local', 'true']);
+
+    const div = document.createElement('div');
+    for (const [k, v] of attrs) div.setAttribute(`data-aoe-${k}`, v);
+    preview.replaceChildren(div);
+    (window as any).AoECountdown?.scan(preview);
+
+    const attrText = attrs.map(([k, v]) => `data-aoe-${k}="${esc(v)}"`).join('\n     ');
+    code.textContent = `<div ${attrText}></div>\n<script async src="${location.origin}/embed/v1.js"></` + `script>`;
+  }
+  form.addEventListener('input', render);
+  render();
+
+  const copy = $<HTMLButtonElement>('[data-copy]');
+  copy.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(code.textContent || '');
+    copy.textContent = 'Code copied';
+    setTimeout(() => (copy.textContent = 'Copy code'), 2000);
+  });
+</script>
+
+<style>
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: 32px 48px;
+    margin-top: 24px;
+  }
+  @media (max-width: 860px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+  }
+  .opts {
+    display: grid;
+    gap: 18px;
+    align-content: start;
+  }
+  .check {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-weight: 500;
+  }
+  .out h2 {
+    font-size: 1.25rem;
+  }
+  .preview {
+    min-height: 120px;
+    padding: 24px;
+    border: 1px dashed var(--line);
+    border-radius: 4px;
+    margin-bottom: 24px;
+  }
+  .notes {
+    margin-top: 48px;
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+  }
+</style>

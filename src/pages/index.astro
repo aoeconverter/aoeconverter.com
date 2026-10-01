@@ -1,0 +1,154 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base
+  hero
+  title="AoE time now: Anywhere on Earth clock (UTC−12)"
+  description="The current time Anywhere on Earth (AoE, UTC−12), synced to the second. Check a deadline, convert AoE to your timezone, or embed a countdown on your site."
+>
+  <section class="check" aria-labelledby="check-h">
+    <h1 id="check-h">When is your AoE deadline in your time?</h1>
+    <form class="deadline-form" action="/d/" method="get" data-form>
+      <div class="field-row">
+        <div>
+          <label for="f-date">Deadline date</label>
+          <input id="f-date" name="date" type="date" required />
+        </div>
+        <div>
+          <label for="f-time">Time (AoE)</label>
+          <input id="f-time" name="t" type="time" value="23:59" />
+        </div>
+        <div class="wide">
+          <label for="f-name">Name <span class="muted">(optional)</span></label>
+          <input id="f-name" name="name" type="text" maxlength="80" placeholder="Paper submission" />
+        </div>
+      </div>
+      <output class="answer" data-answer for="f-date f-time" aria-live="polite"></output>
+      <div class="actions">
+        <button class="btn" type="submit">Open countdown page</button>
+        <a class="btn secondary" href="/embed" data-embed-link>Embed this countdown</a>
+      </div>
+    </form>
+  </section>
+
+  <section class="services" aria-labelledby="more-h">
+    <h2 id="more-h">More ways to use AoE time</h2>
+    <dl>
+      <div>
+        <dt><a href="/convert">Convert between AoE and any timezone</a></dt>
+        <dd>Type a time in AoE, your city, or anywhere else and see it in every zone you care about.</dd>
+      </div>
+      <div>
+        <dt><a href="/embed">Put a live countdown on your website</a></dt>
+        <dd>Copy two lines of HTML. Works on any site, adjusts to its theme, and keeps exact time.</dd>
+      </div>
+      <div>
+        <dt><a href="/conferences">Upcoming conference deadlines</a></dt>
+        <dd>Submission deadlines given in AoE, with live countdowns and calendar reminders.</dd>
+      </div>
+      <div>
+        <dt><a href="/is-it-still/" data-still-link>Is it still today anywhere?</a></dt>
+        <dd>A straight answer to the question behind every AoE deadline.</dd>
+      </div>
+    </dl>
+  </section>
+</Base>
+
+<script>
+  import { clock } from '../lib/client';
+  import { deadlineEpoch, todayAoE, ymdString } from '../lib/aoe';
+  import { deadlinePath, formatInZone, humanDuration } from '../lib/format';
+
+  const form = document.querySelector<HTMLFormElement>('[data-form]')!;
+  const date = form.querySelector<HTMLInputElement>('#f-date')!;
+  const time = form.querySelector<HTMLInputElement>('#f-time')!;
+  const name = form.querySelector<HTMLInputElement>('#f-name')!;
+  const answer = form.querySelector<HTMLOutputElement>('[data-answer]')!;
+  const embedLink = form.querySelector<HTMLAnchorElement>('[data-embed-link]')!;
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  const today = ymdString(todayAoE(clock.now()));
+  date.value = today;
+  document.querySelector<HTMLAnchorElement>('[data-still-link]')!.href = `/is-it-still/${today}`;
+
+  function update() {
+    const epoch = deadlineEpoch(date.value, time.value);
+    if (epoch === null) {
+      answer.textContent = 'Pick a date to see it in your time.';
+      return;
+    }
+    const left = epoch - clock.now();
+    const when = left > 0 ? `${humanDuration(left)} from now` : `${humanDuration(-left)} ago`;
+    answer.innerHTML = '';
+    const strong = document.createElement('strong');
+    strong.textContent = formatInZone(epoch, tz);
+    answer.append('In your time (', tz.replace(/_/g, ' '), ') that’s ', strong, `, ${when}.`);
+    const q = new URLSearchParams({ date: date.value, t: time.value || '23:59' });
+    if (name.value) q.set('name', name.value);
+    embedLink.href = `/embed?${q}`;
+  }
+  form.addEventListener('input', update);
+  setInterval(update, 1000);
+  update();
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!date.value) return;
+    location.href = deadlinePath({ date: date.value, time: time.value, name: name.value.trim() });
+  });
+</script>
+
+<style>
+  .check {
+    padding-bottom: 48px;
+  }
+  .check h1 {
+    max-width: 18ch;
+  }
+  .deadline-form {
+    display: grid;
+    gap: 20px;
+    max-width: 760px;
+  }
+  .field-row .wide {
+    grid-column: span 2;
+  }
+  @media (max-width: 560px) {
+    .field-row .wide {
+      grid-column: 1 / -1;
+    }
+  }
+  .answer {
+    display: block;
+    font-size: 1.25rem;
+    line-height: 1.4;
+    min-height: 1.4em;
+    border-left: 4px solid var(--buoy);
+    padding-left: 14px;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .services {
+    border-top: 1px solid var(--line);
+    padding-top: 32px;
+  }
+  dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px 40px;
+    margin: 0;
+  }
+  dt {
+    font-weight: 700;
+    font-size: 1.125rem;
+    font-variation-settings: 'wdth' 90;
+  }
+  dd {
+    margin: 4px 0 0;
+    color: var(--muted);
+  }
+</style>
