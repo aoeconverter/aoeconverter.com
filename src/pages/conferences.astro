@@ -1,74 +1,81 @@
 ---
+import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
-import data from '../data/conferences.json';
 import { deadlineEpoch } from '../lib/aoe';
 import { deadlinePath } from '../lib/format';
+import { addConferenceUrl, fixDeadlineUrl } from '../lib/repo';
 
-interface Conf {
-  slug: string;
-  name: string;
-  track?: string;
-  field: string;
-  deadline_date: string;
-  deadline_time?: string;
-  url: string;
-  example?: boolean;
-}
-
-const confs = (data as Conf[])
-  .map((c) => ({ ...c, epoch: deadlineEpoch(c.deadline_date, c.deadline_time)! }))
-  .filter((c) => c.epoch !== null)
+const rows = (await getCollection('conferences'))
+  .flatMap(({ id, data }) =>
+    data.deadlines.map((d) => ({
+      slug: id,
+      name: data.name,
+      field: data.field,
+      url: data.url,
+      location: data.location,
+      track: d.track,
+      date: d.date,
+      time: d.time,
+      epoch: deadlineEpoch(d.date, d.time)!,
+    })),
+  )
   .sort((a, b) => a.epoch - b.epoch);
-const fields = [...new Set(confs.map((c) => c.field))].sort();
+const fields = [...new Set(rows.map((r) => r.field))].sort();
 ---
 
 <Base title="Conference deadlines in AoE, with live countdowns" description="Upcoming academic conference submission deadlines given in Anywhere on Earth (AoE) time, with countdowns and calendar reminders.">
   <h1>Upcoming conference deadlines</h1>
   <p class="muted">
-    Deadlines given in AoE, soonest first. Dates change, so check the conference site before you plan around one.
+    Deadlines given in AoE, soonest first. Anyone can add a conference; each one is checked against its official call
+    for papers before it’s listed. Dates still change, so confirm on the conference site before you plan around one.
   </p>
 
-  <div class="filters">
-    <label for="field">Field</label>
-    <select id="field" data-filter>
-      <option value="">All fields</option>
-      {fields.map((f) => <option value={f}>{f}</option>)}
-    </select>
+  <div class="toolbar">
+    <div class="filters">
+      <label for="field">Field</label>
+      <select id="field" data-filter>
+        <option value="">All fields</option>
+        {fields.map((f) => <option value={f}>{f}</option>)}
+      </select>
+    </div>
+    <a class="btn" href={addConferenceUrl} rel="noopener">Add a conference</a>
   </div>
 
   <ol class="list" data-list>
     {
-      confs.map((c) => (
-        <li data-epoch={c.epoch} data-field={c.field}>
+      rows.map((r) => (
+        <li data-epoch={r.epoch} data-field={r.field}>
           <div class="info">
             <h2>
-              <a href={c.url} rel="noopener">{c.name}</a>
+              <a href={r.url} rel="noopener">{r.name}</a>
             </h2>
-            <p>
-              {c.track && <span>{c.track}, </span>}
-              <span>{c.field}</span>
-              {c.example && <span class="sample"> Sample entry</span>}
-            </p>
+            <p>{[r.track, r.field, r.location].filter(Boolean).join(', ')}</p>
           </div>
           <div class="due">
             <span class="left" data-left>
-              {c.deadline_date}
+              {r.date}
             </span>
             <span class="muted">
-              {c.deadline_date} {c.deadline_time || '23:59'} AoE
+              {r.date} {r.time || '23:59'} AoE
             </span>
           </div>
-          <a
-            class="go"
-            href={deadlinePath({ date: c.deadline_date, time: c.deadline_time, name: `${c.name}${c.track ? ' ' + c.track.toLowerCase() : ''}` })}
-          >
-            Countdown and reminders
-          </a>
+          <div class="links">
+            <a href={deadlinePath({ date: r.date, time: r.time, name: `${r.name} ${r.track.toLowerCase()}` })}>
+              Countdown and reminders
+            </a>
+            <a class="fix" href={fixDeadlineUrl(r.slug)} rel="noopener">
+              Report a wrong date
+            </a>
+          </div>
         </li>
       ))
     }
   </ol>
-  <p class="empty" data-empty hidden>No upcoming deadlines in this field right now.</p>
+  <p class="empty" data-empty-field hidden>No upcoming deadlines in this field right now.</p>
+  <p class="empty" data-empty-all hidden>
+    No upcoming deadlines yet. <a href={addConferenceUrl} rel="noopener">Add the first one</a>; it takes a minute and
+    no Git knowledge.
+  </p>
 </Base>
 
 <script>
@@ -78,7 +85,8 @@ const fields = [...new Set(confs.map((c) => c.field))].sort();
 
   const items = [...document.querySelectorAll<HTMLLIElement>('[data-list] li')];
   const filter = document.querySelector<HTMLSelectElement>('[data-filter]')!;
-  const empty = document.querySelector<HTMLElement>('[data-empty]')!;
+  const emptyField = document.querySelector<HTMLElement>('[data-empty-field]')!;
+  const emptyAll = document.querySelector<HTMLElement>('[data-empty-all]')!;
 
   function apply(now: number) {
     let shown = 0;
@@ -91,16 +99,25 @@ const fields = [...new Set(confs.map((c) => c.field))].sort();
       li.querySelector('[data-left]')!.textContent = countdownText(left);
       li.classList.toggle('soon', left < 7 * 86400_000);
     }
-    empty.hidden = shown > 0;
+    const anyUpcoming = items.some((li) => Number(li.dataset.epoch) > now);
+    emptyAll.hidden = anyUpcoming;
+    emptyField.hidden = !anyUpcoming || shown > 0;
   }
   filter.addEventListener('change', () => apply(clock.now()));
   everySecond(() => clock.now(), apply);
 </script>
 
 <style>
-  .filters {
-    max-width: 320px;
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
     margin: 24px 0;
+  }
+  .filters {
+    width: min(320px, 100%);
   }
   .list {
     list-style: none;
@@ -130,9 +147,14 @@ const fields = [...new Set(confs.map((c) => c.field))].sort();
     margin: 2px 0 0;
     color: var(--muted);
   }
-  .sample {
-    font-weight: 700;
-    color: var(--signal);
+  .links {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .fix {
+    color: var(--muted);
+    font-size: 0.875rem;
   }
   .due {
     display: flex;

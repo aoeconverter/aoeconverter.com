@@ -1,0 +1,63 @@
+name: Add a conference
+description: Add an upcoming conference deadline. A pull request is opened for you automatically.
+title: "Add conference: "
+labels: ["add-conference"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Fill this in from the conference's official call for papers. A bot checks the details and opens a pull request; a maintainer reviews it before it goes live.
+  - type: input
+    id: name
+    attributes:
+      label: Conference name and year
+      description: Short name plus the edition year.
+      placeholder: NeurIPS 2027
+    validations:
+      required: true
+  - type: dropdown
+    id: field
+    attributes:
+      label: Field
+      options:
+        - Artificial intelligence
+        - Computer vision
+        - Databases and data mining
+        - Human-computer interaction
+        - Machine learning
+        - Natural language processing
+        - Programming languages and software engineering
+        - Robotics
+        - Security and privacy
+        - Systems and networking
+        - Theory and algorithms
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Official call for papers
+      description: Link to the page that states the deadlines.
+      placeholder: https://neurips.cc/Conferences/2027/CallForPapers
+    validations:
+      required: true
+  - type: textarea
+    id: deadlines
+    attributes:
+      label: Deadlines
+      description: |
+        One deadline per line: track, date (YYYY-MM-DD), and time in AoE if it isn't 23:59. Only list deadlines given in AoE.
+      placeholder: |
+        Abstracts, 2027-05-10
+        Full papers, 2027-05-17
+        Supplementary material, 2027-05-24, 12:00
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: Location
+      placeholder: Vancouver, Canada
+    validations:
+      required: false

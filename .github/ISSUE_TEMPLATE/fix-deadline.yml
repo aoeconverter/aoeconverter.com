@@ -1,0 +1,26 @@
+name: Report a wrong date
+description: A listed deadline is wrong, moved, or extended.
+title: "Wrong date: "
+labels: ["fix-deadline"]
+body:
+  - type: input
+    id: slug
+    attributes:
+      label: Conference
+      description: The file name without .yaml, e.g. neurips-2027. Filled in for you when you use the link on the site.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's wrong
+      placeholder: The full paper deadline was extended to 2027-05-24.
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Source
+      description: Link to the official announcement.
+    validations:
+      required: true

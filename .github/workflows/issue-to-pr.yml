@@ -1,0 +1,76 @@
+name: issue to pull request
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: issue-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  submit:
+    if: contains(github.event.issue.labels.*.name, 'add-conference') && github.event.issue.state == 'open'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE: ${{ github.event.issue.number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      # Issue text is only read inside this script (from the event file), never interpolated here.
+      - id: gen
+        run: npx tsx scripts/issue-to-conference.ts
+
+      - name: Ask for fixes
+        if: steps.gen.outputs.valid != 'true'
+        env:
+          COMMENT: ${{ steps.gen.outputs.comment }}
+        run: |
+          gh issue comment "$ISSUE" --body-file "$COMMENT"
+          gh issue edit "$ISSUE" --add-label needs-info
+
+      # PRs opened with GITHUB_TOKEN don't trigger the validate workflow, so run the same checks here.
+      - name: Validate and build
+        if: steps.gen.outputs.valid == 'true'
+        run: |
+          npm test
+          npx tsx scripts/validate-conferences.ts
+          npm run build
+
+      - name: Open or update the pull request
+        if: steps.gen.outputs.valid == 'true'
+        env:
+          SLUG: ${{ steps.gen.outputs.slug }}
+          FILE: ${{ steps.gen.outputs.file }}
+          TITLE: ${{ steps.gen.outputs.title }}
+          AUTHOR: ${{ steps.gen.outputs.author }}
+          COMMENT: ${{ steps.gen.outputs.comment }}
+        run: |
+          BRANCH="conf/$SLUG"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add -- "$FILE"
+          git commit -m "$TITLE" -m "From issue #$ISSUE." -m "Co-authored-by: $AUTHOR"
+          git push --force origin "$BRANCH"
+          PR=$(gh pr list --head "$BRANCH" --state open --json url --jq '.[0].url')
+          if [ -z "$PR" ]; then
+            PR=$(gh pr create --base master --head "$BRANCH" --title "$TITLE" --body-file "$COMMENT" --label add-conference)
+          else
+            gh pr edit "$PR" --title "$TITLE" --body-file "$COMMENT"
+          fi
+          gh issue edit "$ISSUE" --remove-label needs-info || true
+          gh issue comment "$ISSUE" --body "Thanks! I opened $PR with these details. A maintainer will review it soon."

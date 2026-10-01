@@ -5,10 +5,11 @@
   "scripts": {
     "build:embed": "esbuild src/embed/index.ts --bundle --minify --format=iife --target=es2019 --outfile=public/embed/v1.js",
     "dev": "npm run build:embed && astro dev",
-    "build": "npm run build:embed && astro build",
+    "build": "npm run build:embed && astro build --force",
     "preview": "npm run build && wrangler pages dev dist --port 8788",
     "test": "vitest run",
-    "deploy": "npm run build && wrangler pages deploy dist"
+    "deploy": "npm run build && wrangler pages deploy dist",
+    "validate": "tsx scripts/validate-conferences.ts"
   },
   "dependencies": {
     "astro": "^5.18.2",
@@ -16,9 +17,12 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260702.1",
+    "@types/node": "^20.19.43",
     "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11",
-    "wrangler": "^4.86.0"
+    "wrangler": "^4.86.0",
+    "yaml": "^2.9.1"
   }
 }

@@ -14,7 +14,7 @@ Astro static site on Cloudflare Pages, with Pages Functions for the dynamic part
 | `/is-it-still/2026-11-15` | "Is it still this date anywhere?" | `src/pages/is-it-still.astro` + `functions/is-it-still/[date].ts` |
 | `/embed` | Generator for the embeddable countdown | `src/pages/embed.astro` |
 | `/embed/v1.js` | The embed script (~3 KB gz, Shadow DOM, no cookies) | `src/embed/index.ts` |
-| `/conferences` | Conference deadline list | `src/pages/conferences.astro`, data in `src/data/conferences.json` |
+| `/conferences` | Conference deadline list | `src/pages/conferences.astro`, one YAML file per conference in `src/data/conferences/` |
 | `/badge/2026-11-15.svg?label=X` | Countdown badge for READMEs/emails | `functions/badge/[name].ts` |
 | `/og/2026-11-15.png` | Link-preview image (`/og/default.png` for the site) | `functions/og/[name].ts` |
 | `/api/time` | Server time for clock sync (CORS open) | `functions/api/time.ts` |
@@ -26,6 +26,7 @@ Every page has the sticky AoE clock (`src/components/AoEClock.astro`). Time logi
 ```sh
 npm install
 npm test          # unit tests (vitest)
+npm run validate  # check conference files (add -- --offline to skip link checks)
 npm run dev       # Astro dev server; functions (badge, OG, /d/<date>, /api/time) don't run here
 npm run preview   # full build + `wrangler pages dev` on :8788, including functions
 npm run deploy    # build + deploy to Cloudflare Pages (needs `wrangler login`)
@@ -33,7 +34,12 @@ npm run deploy    # build + deploy to Cloudflare Pages (needs `wrangler login`)
 
 ## Conference data
 
-`src/data/conferences.json` only holds **sample entries** (`"example": true`, shown with a "Sample entry" tag). Replace them with real, verified deadlines before launch. Past deadlines are hidden on the client, so the page stays correct between rebuilds.
+Deadlines come from the community. See [CONTRIBUTING.md](CONTRIBUTING.md) for the file format.
+
+- **Issue form → PR:** `.github/workflows/issue-to-pr.yml` runs `scripts/issue-to-conference.ts` on issues labelled `add-conference`. Valid submissions become a `conf/<slug>` branch and PR; invalid ones get a comment and the `needs-info` label.
+- **Checks:** `.github/workflows/validate.yml` runs tests, `npm run validate` (schema, file names, duplicate links, no past deadlines in new files, link reachability) and the build on every PR.
+- **Schema:** `src/data/schema.ts`, used by the Astro content collection (`src/content.config.ts`), the validator and the bot. Allowed fields are in `src/data/fields.ts`; keep them in sync with `.github/ISSUE_TEMPLATE/add-conference.yml` (a test checks it).
+- Past deadlines are hidden on the client, so the page stays correct between rebuilds.
 
 ## Conventions
 
