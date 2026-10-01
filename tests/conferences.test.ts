@@ -144,6 +144,7 @@ describe('issue form', () => {
     expect(text).toContain('no date');
     expect(text).toContain('url');
     expect(text).toContain('already passed');
+    expect(text).not.toContain('File name');
   });
 
   it('keeps hostile text inert', () => {
