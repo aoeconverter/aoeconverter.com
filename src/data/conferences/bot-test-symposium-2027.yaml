@@ -1,0 +1,9 @@
+name: Bot Test Symposium 2027
+field: Robotics
+url: https://example.org/
+deadlines:
+  - track: Abstracts
+    date: 2027-03-01
+  - track: Papers
+    date: 2027-03-08
+    time: "12:00"
