@@ -58,3 +58,26 @@ export function badgePath({ date, time, name }: DeadlineSpec): string {
   const qs = q.toString();
   return `/badge/${date}.svg${qs ? '?' + qs : ''}`;
 }
+
+/** 17.5 h → "17 hours 30 minutes"; used for "AoE is … behind X". */
+export function hoursMinutes(ms: number): string {
+  const total = Math.round(Math.abs(ms) / 60_000);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  const hs = h ? `${h} hour${h === 1 ? '' : 's'}` : '';
+  const ms_ = m ? `${m} minute${m === 1 ? '' : 's'}` : '';
+  return [hs, ms_].filter(Boolean).join(' ') || '0 hours';
+}
+
+/** Wall time in a zone `gapMs` ahead of AoE, for an AoE wall time of hh:mm. */
+export function shiftWallTime(hour: number, minute: number, gapMs: number): { time: string; dayShift: number } {
+  const local = hour * 60 + minute + Math.round(gapMs / 60_000);
+  const dayShift = Math.floor(local / 1440);
+  const m = ((local % 1440) + 1440) % 1440;
+  return { time: `${pad(Math.floor(m / 60))}:${pad(m % 60)}`, dayShift };
+}
+
+/** Lowercase a track name for use mid-sentence, keeping acronyms: "Full papers" → "full papers", "ARR submission" stays. */
+export function trackInSentence(track: string): string {
+  return /^[A-Z][a-z]/.test(track) ? track[0].toLowerCase() + track.slice(1) : track;
+}

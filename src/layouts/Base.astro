@@ -1,18 +1,30 @@
 ---
+import '@fontsource-variable/archivo/wdth.css';
+import fontLatin from '@fontsource-variable/archivo/files/archivo-latin-wdth-normal.woff2?url';
 import AoEClock from '../components/AoEClock.astro';
+import { ZONES } from '../data/zones';
 
 interface Props {
   title: string;
   description: string;
   hero?: boolean;
+  /** e.g. "noindex, follow" for client-rendered shells. */
+  robots?: string;
+  /** Path to declare as canonical; defaults to this page. */
+  canonical?: string;
+  /** schema.org objects, rendered as JSON-LD. */
+  jsonLd?: Record<string, unknown>[];
+  ogImage?: string;
 }
-const { title, description, hero = false } = Astro.props;
-const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const { title, description, hero = false, robots = 'index, follow', jsonLd = [], ogImage = '/og/default.png' } = Astro.props;
+const withSlash = (p: string) => (p.endsWith('/') ? p : p + '/');
+const canonical = new URL(withSlash(Astro.props.canonical ?? Astro.url.pathname), Astro.site).href;
+const path = withSlash(Astro.url.pathname);
 const nav = [
-  ['/convert', 'Convert'],
-  ['/conferences', 'Conference deadlines'],
-  ['/embed', 'Embed a countdown'],
-  ['/about', 'About AoE'],
+  ['/convert/', 'Convert'],
+  ['/conferences/', 'Conference deadlines'],
+  ['/embed/', 'Embed a countdown'],
+  ['/about/', 'About AoE'],
 ];
 ---
 
@@ -23,22 +35,21 @@ const nav = [
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <meta name="robots" content={robots} />
+    <link rel="canonical" href={canonical} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content={new URL(Astro.url.pathname, Astro.site)} />
-    <meta property="og:image" content={new URL('/og/default.png', Astro.site)} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content="AoE Converter" />
+    <meta property="og:image" content={new URL(ogImage, Astro.site)} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
-    <meta name="twitter:image" content={new URL('/og/default.png', Astro.site)} />
+    <meta name="twitter:image" content={new URL(ogImage, Astro.site)} />
     <meta name="theme-color" content="#0F2740" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&display=swap"
-    />
+    <link rel="preload" href={fontLatin} as="font" type="font/woff2" crossorigin />
+    {jsonLd.map((data) => <script type="application/ld+json" set:html={JSON.stringify(data)} />)}
   </head>
   <body class:list={{ 'is-hero': hero }}>
     <a class="skip" href="#main">Skip to content</a>
@@ -63,6 +74,21 @@ const nav = [
     <footer class="site-footer">
       <p>
         AoE is UTC−12 with no daylight saving. The time shown is synced to our server, not just read from your device.
+      </p>
+      <nav aria-label="AoE in other timezones">
+        <h2 class="footer-h">AoE in your timezone</h2>
+        <ul class="zone-links">
+          {
+            ZONES.map((z) => (
+              <li>
+                <a href={`/aoe-to-${z.slug}/`}>{z.query}</a>
+              </li>
+            ))
+          }
+        </ul>
+      </nav>
+      <p class="footer-meta">
+        <a href="https://github.com/aoeconverter/aoeconverter.com">Source code and conference data on GitHub</a>
       </p>
     </footer>
   </body>
@@ -116,7 +142,7 @@ const nav = [
     margin: 0;
     background: var(--paper);
     color: var(--ink);
-    font-family: 'Archivo', system-ui, sans-serif;
+    font-family: 'Archivo Variable', system-ui, sans-serif;
     font-size: 1.0625rem;
     line-height: 1.5;
     font-variant-numeric: tabular-nums;
@@ -211,6 +237,22 @@ const nav = [
     padding: 20px 0 40px;
     color: var(--muted);
     font-size: 0.9375rem;
+  }
+  .footer-h {
+    font-size: 1rem;
+    margin: 24px 0 8px;
+    color: var(--ink);
+  }
+  .zone-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+  }
+  .footer-meta {
+    margin-top: 20px;
   }
 
   /* Shared form controls */

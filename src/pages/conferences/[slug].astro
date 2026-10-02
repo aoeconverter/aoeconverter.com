@@ -1,0 +1,204 @@
+---
+import { getCollection, type CollectionEntry } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { CONFERENCE_ZONES } from '../../data/zones';
+import { deadlineEpoch, parseDate, parseTime, pad } from '../../lib/aoe';
+import { MONTHS, WEEKDAYS, deadlinePath, formatInZone, trackInSentence } from '../../lib/format';
+import { fixDeadlineUrl } from '../../lib/repo';
+
+export async function getStaticPaths() {
+  return (await getCollection('conferences')).map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props as { entry: CollectionEntry<'conferences'> };
+const conf = entry.data;
+
+const deadlines = conf.deadlines
+  .map((d) => {
+    const date = parseDate(d.date)!;
+    const time = parseTime(d.time)!;
+    const epoch = deadlineEpoch(d.date, d.time)!;
+    const dow = WEEKDAYS[new Date(Date.UTC(date.year, date.month - 1, date.day)).getUTCDay()];
+    return {
+      ...d,
+      epoch,
+      long: `${dow} ${date.day} ${MONTHS[date.month - 1]} ${date.year}, ${pad(time.hour)}:${pad(time.minute)} AoE`,
+      short: `${date.day} ${MONTHS[date.month - 1].slice(0, 3)} ${date.year}`,
+    };
+  })
+  .sort((a, b) => a.epoch - b.epoch);
+
+// The headline deadline: the full-paper one if named, else the last one listed.
+const main =
+  deadlines.find((d) => /paper|submission/i.test(d.track) && !/registration|abstract|supplement/i.test(d.track)) ??
+  deadlines[deadlines.length - 1];
+
+const title = `${conf.name} deadline: ${main.short} (AoE) | Countdown and your local time`;
+const description = `${conf.name} ${trackInSentence(main.track)} deadline: ${main.long} (${formatInZone(main.epoch, 'UTC', 'en-GB').replace(/:00$/, '')} UTC). ${deadlines.length > 1 ? `All ${deadlines.length} deadlines` : 'The deadline'} with live countdowns and times in your timezone.`;
+const fmt = (epoch: number, tz: string) => formatInZone(epoch, tz, 'en-GB').replace(/:00$/, '');
+---
+
+<Base
+  title={title}
+  description={description}
+  ogImage={`/og/${main.date}.png?${new URLSearchParams({ ...(main.time ? { t: main.time } : {}), name: `${conf.name} ${trackInSentence(main.track)}` })}`}
+  jsonLd={[
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Conference deadlines', item: 'https://aoeconverter.com/conferences/' },
+        { '@type': 'ListItem', position: 2, name: conf.name, item: `https://aoeconverter.com/conferences/${entry.id}/` },
+      ],
+    },
+  ]}
+>
+  <article class="conf">
+    <p class="crumbs"><a href="/conferences/">Conference deadlines</a></p>
+    <h1>{conf.name} deadlines</h1>
+    <p class="lede">
+      The {conf.name} {trackInSentence(main.track)} deadline is <strong>{main.long}</strong>, which is{' '}
+      {fmt(main.epoch, 'UTC')} UTC.
+      {conf.location && <> The conference is in {conf.location}.</>}
+    </p>
+    <p class="meta">
+      {conf.field}. <a href={conf.url} rel="noopener">Official call for papers</a>.{' '}
+      <a href={fixDeadlineUrl(entry.id)} rel="noopener">Report a wrong date</a>.
+    </p>
+
+    {
+      deadlines.map((d) => (
+        <section class="deadline" data-epoch={d.epoch}>
+          <h2>{d.track}</h2>
+          <p class="when">{d.long}</p>
+          <p class="left" data-left>
+            &nbsp;
+          </p>
+          <div class="table-wrap">
+            <table>
+              <tbody>
+                <tr class="aoe">
+                  <th scope="row">AoE (UTC−12)</th>
+                  <td>{fmt(d.epoch, 'Etc/GMT+12')}</td>
+                </tr>
+                {CONFERENCE_ZONES.map((z) => (
+                  <tr>
+                    <th scope="row">
+                      <a href={`/aoe-to-${z.slug}/`}>{z.short}</a>
+                    </th>
+                    <td>{fmt(d.epoch, z.iana)}</td>
+                  </tr>
+                ))}
+                <tr class="you" hidden data-you>
+                  <th scope="row">Your time</th>
+                  <td data-you-time />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            <a class="btn secondary" href={deadlinePath({ date: d.date, time: d.time, name: `${conf.name} ${trackInSentence(d.track)}` })}>
+              Countdown, calendar reminder and embed code
+            </a>
+          </p>
+        </section>
+      ))
+    }
+
+    <p class="muted note">
+      Dates come from the official call for papers and are reviewed before they’re published. Deadlines can move, so
+      confirm on the <a href={conf.url} rel="noopener">conference site</a> before you plan around one.
+    </p>
+  </article>
+</Base>
+
+<script>
+  import { clock } from '../../lib/client';
+  import { everySecond } from '../../lib/timesync';
+  import { countdownText, formatInZone, humanDuration } from '../../lib/format';
+
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const sections = [...document.querySelectorAll<HTMLElement>('.deadline[data-epoch]')];
+  for (const s of sections) {
+    const epoch = Number(s.dataset.epoch);
+    s.querySelector<HTMLElement>('[data-you]')!.hidden = false;
+    s.querySelector<HTMLElement>('[data-you-time]')!.textContent = `${formatInZone(epoch, tz, 'en-GB').replace(/:00$/, '')} (${tz.replace(/_/g, ' ')})`;
+  }
+  everySecond(
+    () => clock.now(),
+    (now) => {
+      for (const s of sections) {
+        const left = Number(s.dataset.epoch) - now;
+        const el = s.querySelector<HTMLElement>('[data-left]')!;
+        el.textContent = left > 0 ? `${countdownText(left)} left` : `Closed ${humanDuration(-left)} ago`;
+        s.classList.toggle('closed', left <= 0);
+      }
+    },
+  );
+</script>
+
+<style>
+  .conf {
+    max-width: 820px;
+  }
+  .crumbs {
+    margin: 0 0 8px;
+    font-size: 0.9375rem;
+  }
+  .lede {
+    font-size: 1.25rem;
+    line-height: 1.45;
+  }
+  .meta {
+    color: var(--muted);
+  }
+  .deadline {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+    margin-top: 32px;
+  }
+  .deadline h2 {
+    margin-bottom: 0.2em;
+  }
+  .when {
+    font-size: 1.125rem;
+    margin: 0;
+  }
+  .left {
+    font-weight: 800;
+    font-variation-settings: 'wdth' 62;
+    font-size: clamp(2.5rem, 9vw, 4.5rem);
+    line-height: 1;
+    margin: 12px 0 16px;
+  }
+  .closed .left {
+    color: var(--signal);
+    font-size: 1.75rem;
+  }
+  .table-wrap {
+    overflow-x: auto;
+  }
+  table {
+    border-collapse: collapse;
+    margin-bottom: 16px;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 6px 24px 6px 0;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  th {
+    font-weight: 600;
+  }
+  tr.aoe th,
+  tr.aoe td,
+  tr.you th,
+  tr.you td {
+    font-weight: 800;
+  }
+  .note {
+    margin-top: 40px;
+  }
+</style>

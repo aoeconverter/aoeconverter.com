@@ -7,5 +7,7 @@ export const onRequest: PagesFunction<{ ASSETS: Fetcher }, 'date'> = (ctx) => {
   return serveShell(ctx, '/is-it-still/', {
     title: `Is it still ${date} anywhere on Earth?`,
     description: `Live answer: how much of ${date} is left somewhere on Earth (AoE, UTC−12).`,
+    // One page per calendar date would be thousands of near-duplicates; index only /is-it-still/.
+    robots: 'noindex, follow',
   });
 };

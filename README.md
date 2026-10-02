@@ -15,6 +15,8 @@ Astro static site on Cloudflare Pages, with Pages Functions for the dynamic part
 | `/embed` | Generator for the embeddable countdown | `src/pages/embed.astro` |
 | `/embed/v1.js` | The embed script (~3 KB gz, Shadow DOM, no cookies) | `src/embed/index.ts` |
 | `/conferences` | Conference deadline list | `src/pages/conferences.astro`, one YAML file per conference in `src/data/conferences/` |
+| `/conferences/<slug>/` | One page per conference: deadlines in AoE, UTC and 10 zones, live countdowns | `src/pages/conferences/[slug].astro` |
+| `/aoe-to-<zone>/` | "AoE to IST" and other landing pages with conversion tables (zones in `src/data/zones.ts`) | `src/pages/aoe-to-[zone].astro` |
 | `/badge/2026-11-15.svg?label=X` | Countdown badge for READMEs/emails | `functions/badge/[name].ts` |
 | `/og/2026-11-15.png` | Link-preview image (`/og/default.png` for the site) | `functions/og/[name].ts` |
 | `/api/time` | Server time for clock sync (CORS open) | `functions/api/time.ts` |
@@ -40,6 +42,13 @@ Deadlines come from the community. See [CONTRIBUTING.md](CONTRIBUTING.md) for th
 - **Checks:** `.github/workflows/validate.yml` runs tests, `npm run validate` (schema, file names, duplicate links, no past deadlines in new files, link reachability) and the build on every PR.
 - **Schema:** `src/data/schema.ts`, used by the Astro content collection (`src/content.config.ts`), the validator and the bot. Allowed fields are in `src/data/fields.ts`; keep them in sync with `.github/ISSUE_TEMPLATE/add-conference.yml` (a test checks it).
 - Past deadlines are hidden on the client, so the page stays correct between rebuilds.
+
+## SEO
+
+- Sitemap at `/sitemap-index.xml` (`@astrojs/sitemap`); `robots.txt` points to it.
+- Every page has a canonical URL with a trailing slash. Shells for arbitrary dates (`/d/<date>`, `/is-it-still/<date>`) are `noindex, follow`; `functions/_lib/shell.ts` sets it.
+- `src/pages/404.astro` makes missing URLs return a real 404 instead of the home page.
+- The font is self-hosted (`@fontsource-variable/archivo`) and preloaded.
 
 ## Conventions
 

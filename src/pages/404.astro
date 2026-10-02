@@ -1,0 +1,20 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Page not found | AoE Converter" description="This page doesn't exist." robots="noindex, follow">
+  <h1>This page doesn’t exist</h1>
+  <p>The link may be mistyped or out of date. The current AoE time is at the top of this page.</p>
+  <ul class="next">
+    <li><a href="/convert/">Convert a time between AoE and your timezone</a></li>
+    <li><a href="/conferences/">See upcoming conference deadlines</a></li>
+    <li><a href="/">Check a deadline</a></li>
+  </ul>
+</Base>
+
+<style>
+  .next {
+    padding-left: 1.2em;
+    line-height: 2;
+  }
+</style>

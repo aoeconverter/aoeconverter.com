@@ -2,7 +2,7 @@
 import Base from '../layouts/Base.astro';
 ---
 
-<Base title="Deadline countdown in AoE" description="Live countdown to a deadline Anywhere on Earth (UTC−12), shown in your own timezone.">
+<Base title="Deadline countdown in AoE" description="Live countdown to a deadline Anywhere on Earth (UTC−12), shown in your own timezone." robots="noindex, follow">
   <section data-view hidden>
     <h1 data-name>Deadline</h1>
     <p class="when" data-when></p>
@@ -104,7 +104,7 @@ import Base from '../layouts/Base.astro';
     });
     const q = new URLSearchParams({ date, t: time });
     if (name) q.set('name', name);
-    $<HTMLAnchorElement>('[data-embed]').href = `/embed?${q}`;
+    $<HTMLAnchorElement>('[data-embed]').href = `/embed/?${q}`;
 
     const badgeUrl = location.origin + badgePath({ date, time, name });
     $<HTMLImageElement>('[data-badge-img]').src = badgeUrl;
