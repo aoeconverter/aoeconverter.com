@@ -116,3 +116,17 @@ describe('ics', () => {
     expect(ics.split('\r\n')[0]).toBe('BEGIN:VCALENDAR');
   });
 });
+
+describe('zone page helpers', async () => {
+  const { hoursMinutes, shiftWallTime } = await import('../src/lib/format');
+  it('describes gaps', () => {
+    expect(hoursMinutes(17.5 * 3600_000)).toBe('17 hours 30 minutes');
+    expect(hoursMinutes(1 * 3600_000)).toBe('1 hour');
+    expect(hoursMinutes(-5 * 3600_000)).toBe('5 hours');
+  });
+  it('shifts AoE wall time into another zone', () => {
+    expect(shiftWallTime(23, 59, 17.5 * 3600_000)).toEqual({ time: '17:29', dayShift: 1 });
+    expect(shiftWallTime(0, 0, 4 * 3600_000)).toEqual({ time: '04:00', dayShift: 0 });
+    expect(shiftWallTime(23, 0, 12 * 3600_000)).toEqual({ time: '11:00', dayShift: 1 });
+  });
+});

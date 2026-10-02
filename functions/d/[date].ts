@@ -15,5 +15,6 @@ export const onRequest: PagesFunction<{ ASSETS: Fetcher }, 'date'> = (ctx) => {
     title: `${label}: ${when}`,
     description: `Countdown to ${label}: ${when} (${formatInZone(epoch, 'UTC', 'en-GB')} UTC). See it in your own timezone.`,
     image: `${url.origin}/og/${date}.png${url.search}`,
+    robots: 'noindex, follow',
   });
 };

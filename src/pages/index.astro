@@ -1,11 +1,42 @@
 ---
 import Base from '../layouts/Base.astro';
+import { ZONES } from '../data/zones';
+import { deadlineRows } from '../lib/deadlines';
+import { trackInSentence } from '../lib/format';
+
+const upcoming = (await deadlineRows()).filter((r) => r.epoch > Date.now()).slice(0, 5);
 ---
 
 <Base
   hero
-  title="AoE time now: Anywhere on Earth clock (UTC−12)"
-  description="The current time Anywhere on Earth (AoE, UTC−12), synced to the second. Check a deadline, convert AoE to your timezone, or embed a countdown on your site."
+  title="AoE Time Now: Current Time Anywhere on Earth (UTC−12)"
+  description="The current time Anywhere on Earth (AoE, UTC−12), synced to the second. See when a 23:59 AoE deadline is in your timezone, track conference deadlines, or embed a countdown on your site."
+  jsonLd={[
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'AoE Converter',
+      url: 'https://aoeconverter.com/',
+      description: 'Current time Anywhere on Earth (AoE, UTC−12) and AoE deadline tools.',
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebApplication',
+      name: 'AoE Converter',
+      url: 'https://aoeconverter.com/',
+      applicationCategory: 'UtilitiesApplication',
+      operatingSystem: 'Any',
+      browserRequirements: 'Requires JavaScript',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      featureList: [
+        'Current AoE (UTC−12) time synced to a server clock',
+        'Convert AoE to any timezone',
+        'Countdown pages with calendar reminders',
+        'Embeddable deadline countdown',
+        'Conference submission deadlines in AoE',
+      ],
+    },
+  ]}
 >
   <section class="check" aria-labelledby="check-h">
     <h1 id="check-h">When is your AoE deadline in your time?</h1>
@@ -27,24 +58,64 @@ import Base from '../layouts/Base.astro';
       <output class="answer" data-answer for="f-date f-time" aria-live="polite"></output>
       <div class="actions">
         <button class="btn" type="submit">Open countdown page</button>
-        <a class="btn secondary" href="/embed" data-embed-link>Embed this countdown</a>
+        <a class="btn secondary" href="/embed/" data-embed-link>Embed this countdown</a>
       </div>
     </form>
   </section>
+
+  <section class="explain" aria-labelledby="what-h">
+    <h2 id="what-h">What is AoE time?</h2>
+    <p>
+      AoE, or Anywhere on Earth, is the timezone UTC−12, 12 hours behind UTC with no daylight saving. It’s the last
+      place on the planet where each date ends, which is why conferences, journals and grant programs set deadlines
+      like “23:59 AoE”: if it’s still the deadline date anywhere, you’re on time. The clock at the top of this page
+      shows the current AoE time, corrected against our server so it’s right even if your device clock isn’t.
+    </p>
+    <p>
+      A 23:59 AoE deadline is 11:59 UTC the next day. See it in your timezone:
+    </p>
+    <ul class="zone-list">
+      {
+        ZONES.map((z) => (
+          <li>
+            <a href={`/aoe-to-${z.slug}/`}>{z.query}</a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  {
+    upcoming.length > 0 && (
+      <section class="soon" aria-labelledby="soon-h">
+        <h2 id="soon-h">Next conference deadlines</h2>
+        <ul>
+          {upcoming.map((r) => (
+            <li data-epoch={r.epoch}>
+              <a href={`/conferences/${r.slug}/`}>{r.name}</a> {trackInSentence(r.track)}: {r.date} {r.time ?? '23:59'} AoE
+            </li>
+          ))}
+        </ul>
+        <p>
+          <a href="/conferences/">All conference deadlines</a>
+        </p>
+      </section>
+    )
+  }
 
   <section class="services" aria-labelledby="more-h">
     <h2 id="more-h">More ways to use AoE time</h2>
     <dl>
       <div>
-        <dt><a href="/convert">Convert between AoE and any timezone</a></dt>
+        <dt><a href="/convert/">Convert between AoE and any timezone</a></dt>
         <dd>Type a time in AoE, your city, or anywhere else and see it in every zone you care about.</dd>
       </div>
       <div>
-        <dt><a href="/embed">Put a live countdown on your website</a></dt>
+        <dt><a href="/embed/">Put a live countdown on your website</a></dt>
         <dd>Copy two lines of HTML. Works on any site, adjusts to its theme, and keeps exact time.</dd>
       </div>
       <div>
-        <dt><a href="/conferences">Upcoming conference deadlines</a></dt>
+        <dt><a href="/conferences/">Upcoming conference deadlines</a></dt>
         <dd>Submission deadlines given in AoE, with live countdowns and calendar reminders.</dd>
       </div>
       <div>
@@ -86,7 +157,10 @@ import Base from '../layouts/Base.astro';
     answer.append('In your time (', tz.replace(/_/g, ' '), ') that’s ', strong, `, ${when}.`);
     const q = new URLSearchParams({ date: date.value, t: time.value || '23:59' });
     if (name.value) q.set('name', name.value);
-    embedLink.href = `/embed?${q}`;
+    embedLink.href = `/embed/?${q}`;
+  }
+  for (const li of document.querySelectorAll<HTMLElement>('.soon [data-epoch]')) {
+    li.hidden = Number(li.dataset.epoch) <= clock.now();
   }
   form.addEventListener('input', update);
   setInterval(update, 1000);
@@ -132,9 +206,23 @@ import Base from '../layouts/Base.astro';
     flex-wrap: wrap;
     gap: 12px;
   }
-  .services {
+  .services,
+  .explain,
+  .soon {
     border-top: 1px solid var(--line);
     padding-top: 32px;
+    margin-bottom: 40px;
+  }
+  .zone-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+  }
+  .soon ul {
+    padding-left: 1.2em;
+    line-height: 1.9;
   }
   dl {
     display: grid;

@@ -5,6 +5,7 @@ interface Meta {
   title: string;
   description: string;
   image?: string;
+  robots?: string;
 }
 
 export async function serveShell(
@@ -23,11 +24,18 @@ export async function serveShell(
     set('meta[property="og:url"]', url.href),
     ...(meta.image ? [set('meta[property="og:image"]', meta.image), set('meta[name="twitter:image"]', meta.image)] : []),
   ];
-  let rw = new HTMLRewriter().on('title', {
-    element(el) {
-      el.setInnerContent(meta.title);
-    },
-  });
+  let rw = new HTMLRewriter()
+    .on('title', {
+      element(el) {
+        el.setInnerContent(meta.title);
+      },
+    })
+    .on('link[rel="canonical"]', {
+      element(el) {
+        el.setAttribute('href', url.origin + url.pathname);
+      },
+    });
+  if (meta.robots) attrs.push(set('meta[name="robots"]', meta.robots));
   for (const a of attrs) {
     rw = rw.on(a.selector, {
       element(el) {

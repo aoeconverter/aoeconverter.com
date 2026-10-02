@@ -1,2 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /api/
+
+Sitemap: https://aoeconverter.com/sitemap-index.xml

@@ -1,25 +1,10 @@
 ---
-import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
-import { deadlineEpoch } from '../lib/aoe';
-import { deadlinePath } from '../lib/format';
+import { deadlinePath, trackInSentence } from '../lib/format';
+import { deadlineRows } from '../lib/deadlines';
 import { addConferenceUrl, fixDeadlineUrl } from '../lib/repo';
 
-const rows = (await getCollection('conferences'))
-  .flatMap(({ id, data }) =>
-    data.deadlines.map((d) => ({
-      slug: id,
-      name: data.name,
-      field: data.field,
-      url: data.url,
-      location: data.location,
-      track: d.track,
-      date: d.date,
-      time: d.time,
-      epoch: deadlineEpoch(d.date, d.time)!,
-    })),
-  )
-  .sort((a, b) => a.epoch - b.epoch);
+const rows = await deadlineRows();
 const fields = [...new Set(rows.map((r) => r.field))].sort();
 ---
 
@@ -47,7 +32,7 @@ const fields = [...new Set(rows.map((r) => r.field))].sort();
         <li data-epoch={r.epoch} data-field={r.field}>
           <div class="info">
             <h2>
-              <a href={r.url} rel="noopener">{r.name}</a>
+              <a href={`/conferences/${r.slug}/`}>{r.name}</a>
             </h2>
             <p>{[r.track, r.field, r.location].filter(Boolean).join(', ')}</p>
           </div>
@@ -60,7 +45,7 @@ const fields = [...new Set(rows.map((r) => r.field))].sort();
             </span>
           </div>
           <div class="links">
-            <a href={deadlinePath({ date: r.date, time: r.time, name: `${r.name} ${r.track.toLowerCase()}` })}>
+            <a href={deadlinePath({ date: r.date, time: r.time, name: `${r.name} ${trackInSentence(r.track)}` })}>
               Countdown and reminders
             </a>
             <a class="fix" href={fixDeadlineUrl(r.slug)} rel="noopener">
