@@ -1,0 +1,13 @@
+name: RSS 2027
+field: Robotics
+url: https://roboticsconference.org/information/cfp/
+location: Athens, Greece
+deadlines:
+  - track: Extended abstract
+    date: 2026-12-04
+  - track: Rebuttal
+    date: 2027-02-12
+  - track: Final paper
+    date: 2027-04-16
+  - track: Supplementary material
+    date: 2027-04-19
